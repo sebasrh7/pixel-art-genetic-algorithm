@@ -2,11 +2,11 @@ import React from "react";
 import { ImageMatrix, Individual } from "../utils/evolutionaryAlgorithm";
 
 interface PixelArtCanvasProps {
-  images: Individual[];
-  target: ImageMatrix;
+  image?: Individual;
+  target?: ImageMatrix;
 }
 
-const PixelArtCanvas: React.FC<PixelArtCanvasProps> = ({ images, target }) => {
+const PixelArtCanvas: React.FC<PixelArtCanvasProps> = ({ image, target }) => {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
 
   React.useEffect(() => {
@@ -21,19 +21,18 @@ const PixelArtCanvas: React.FC<PixelArtCanvasProps> = ({ images, target }) => {
     canvas.width = 256; // Ancho de la imagen
     canvas.height = 256; // Alto de la imagen
 
-    if (images.length > 0) {
-      images.map((image) => {
-        for (let y = 0; y < image.image.length; y++) {
-          for (let x = 0; x < image.image[y].length; x++) {
-            const [r, g, b] = image.image[y][x];
-            ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-          }
+    if (image) {
+      console.log(image);
+      for (let y = 0; y < image.image.length; y++) {
+        for (let x = 0; x < image.image[y].length; x++) {
+          const [r, g, b] = image.image[y][x];
+          ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+          ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
         }
-      });
+      }
     }
 
-    if (target.length > 0) {
+    if (target) {
       for (let y = 0; y < target.length; y++) {
         for (let x = 0; x < target[y].length; x++) {
           const [r, g, b] = target[y][x];
@@ -42,7 +41,7 @@ const PixelArtCanvas: React.FC<PixelArtCanvasProps> = ({ images, target }) => {
         }
       }
     }
-  }, [images, target]);
+  }, [image, target]);
 
   return <canvas ref={canvasRef} />;
 };

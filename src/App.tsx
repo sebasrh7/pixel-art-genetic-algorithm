@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import PixelArtCanvas from "./components/PixelArtCanvas";
 import {
-  evolve,
-  generateInitialPopulation,
   ImageMatrix,
   Individual,
   loadTargetImage,
@@ -17,23 +15,35 @@ function App() {
   const [generationsToRun, setGenerationsToRun] = useState<number>(0);
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const workerRef = useRef<Worker | null>(null);
 
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    if (isRunning && generationsToRun > 0) {
-      interval = setInterval(() => {
-        setPopulation((prevPopulation) => {
-          const newPopulation = evolve(prevPopulation);
-          setGeneration((prevGen) => prevGen + 1);
-          return newPopulation;
-        });
-        setGenerationsToRun((prev) => prev - 1);
-      }, 10);
-    } else {
-      setIsRunning(false);
-    }
-    return () => clearInterval(interval);
-  }, [isRunning, generationsToRun]);
+    // Inicializar el worker
+    const worker = new Worker(
+      new URL("./workers/evolutionWorker.ts", import.meta.url),
+      {
+        type: "module", // Necesario para que funcione en un entorno de módulos
+      }
+    );
+    workerRef.current = worker;
+
+    // Escuchar mensajes del worker
+    workerRef.current.onmessage = (event) => {
+      const { type, worker_population, worker_generation } = event.data;
+
+      if (type === "initialized") {
+        setPopulation(worker_population);
+      } else if (type === "generation") {
+        setGeneration(worker_generation);
+        setPopulation(worker_population);
+      } else if (type === "done") {
+        setIsRunning(false);
+      }
+    };
+
+    // Limpiar el worker al desmontar el componente
+    return () => workerRef.current?.terminate();
+  }, []);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -51,9 +61,13 @@ function App() {
         canvas.height = 16;
         ctx.drawImage(img, 0, 0, 16, 16);
         const imageData = ctx.getImageData(0, 0, 16, 16);
-        setTarget(loadTargetImage(imageData));
-        setPopulation(generateInitialPopulation()); // Reiniciar población
-        setGeneration(0);
+
+        const targetImage = loadTargetImage(imageData);
+        setTarget(targetImage);
+
+        workerRef.current?.postMessage({
+          type: "initialize",
+        });
       };
       img.src = e.target?.result as string;
     };
@@ -63,9 +77,29 @@ function App() {
   const toggleEvolution = () => {
     if (isRunning) {
       setIsRunning(false);
+
+      // Detener la evolución
+      workerRef.current?.postMessage({
+        type: "stop",
+      });
     } else {
+      // Validar que el número de generaciones sea mayor que 0
+      if (generationsToRun <= 0) {
+        alert("Por favor, ingresa un número válido de generaciones.");
+        return;
+      }
+
+      if (!workerRef.current) return;
+
       setGeneration(0);
       setIsRunning(true);
+
+      // Enviar el número de generaciones al worker
+      workerRef.current.postMessage({
+        type: "start",
+        targetImage: target,
+        generationsToRun,
+      });
     }
   };
 
@@ -99,7 +133,6 @@ function App() {
       <button onClick={toggleEvolution} disabled={!population.length}>
         {isRunning ? "Detener Evolución" : "Iniciar Evolución"}
       </button>
-
       <div
         style={{
           display: "flex",
@@ -109,12 +142,12 @@ function App() {
       >
         <div>
           <h2>Objetivo</h2>
-          <PixelArtCanvas images={[]} target={target} />
+          <PixelArtCanvas target={target} />
         </div>
         <div>
           <h2>Mejor Individuo</h2>
           {population.length > 0 && (
-            <PixelArtCanvas images={[population[0]]} target={[]} />
+            <PixelArtCanvas image={population[0]} target={[]} />
           )}
         </div>
       </div>
@@ -123,3 +156,4 @@ function App() {
 }
 
 export default App;
+

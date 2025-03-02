@@ -11,9 +11,6 @@ const IMAGE_HEIGHT = 16;
 const POPULATION_SIZE = 50; // Aumentamos el tamaño de la población
 const MUTATION_RATE = 0.1;
 
-// Variable para almacenar la imagen objetivo
-let targetImage: ImageMatrix | null = null;
-
 // Función para generar un color aleatorio (usada solo al iniciar la imagen)
 function randomColor(): Pixel {
   return [
@@ -37,7 +34,7 @@ function generateRandomImage(): ImageMatrix {
 }
 
 // Calcular fitness: la diferencia total entre el individuo y la imagen objetivo
-function calculateFitness(image: ImageMatrix): number {
+function calculateFitness(image: ImageMatrix, targetImage: ImageMatrix | null = null): number {
   if (!targetImage) return 0;
 
   let totalDifference = 0;
@@ -125,7 +122,7 @@ export function generateInitialPopulation(): Individual[] {
 }
 
 // Evolución de la población
-export function evolve(population: Individual[]): Individual[] {
+export function evolve(population: Individual[], targetImage: ImageMatrix): Individual[] {
   // Ordenar por fitness descendente (mayor primero)
   population.sort((a, b) => b.fitness - a.fitness);
   const best = population[0]; // Guardamos el mejor para elitismo
@@ -143,12 +140,12 @@ export function evolve(population: Individual[]): Individual[] {
     const parent2 = selectParent(survivors);
     let childImage = crossover(parent1.image, parent2.image);
     childImage = mutate(childImage);
-    const fitness = calculateFitness(childImage);
+    const fitness = calculateFitness(childImage, targetImage);
     newGeneration.push({ image: childImage, fitness });
   }
 
   // Ordenamos la nueva generación para mantener el orden (opcional)
-  newGeneration.sort((a, b) => b.fitness - a.fitness);
+  newGeneration.sort((a, b) => b.fitness - a.fitness); 
   return newGeneration;
 }
 
@@ -169,6 +166,5 @@ export function loadTargetImage(imageData: ImageData): ImageMatrix {
     target.push(row);
   }
 
-  targetImage = target; // Se asigna la imagen objetivo para el cálculo de fitness
   return target;
 }
